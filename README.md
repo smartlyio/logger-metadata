@@ -32,3 +32,8 @@ metadata and timestamp. For example
 ```
 [2016-11-30 14:27:19 +0200] Message (key=value)
 ```
+
+## Rails integration
+
+If you include `logger-metadata` in a Rails application Gemfile, metadata
+logging will be automatically set up.
