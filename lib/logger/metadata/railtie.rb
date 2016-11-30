@@ -1,4 +1,5 @@
 require 'rails/railtie'
+require 'logger/metadata'
 require 'logger/metadata/middleware'
 
 class Logger

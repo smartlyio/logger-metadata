@@ -1,7 +1,6 @@
 require 'logger'
 require 'logger/metadata/version'
 require 'logger/metadata/formatter'
-require 'logger/metadata/railtie' if defined?(Rails)
 
 class Logger
   # Metadata mixin for Ruby Logger
