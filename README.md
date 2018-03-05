@@ -35,5 +35,4 @@ metadata and timestamp. For example
 
 ## Rails integration
 
-If you include `logger-metadata` in a Rails application Gemfile and require
-`logger/metadata/railtie`, metadata logging will be automatically set up.
+Rails application is automatically setup by requiring `logger/metadata/railtie` if `Rails` is defined.
