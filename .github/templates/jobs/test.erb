@@ -4,7 +4,7 @@ test:
 
   strategy:
     matrix:
-      ruby: [2.4.x, 2.5.x, 2.6.x, 2.7.x]
+      ruby: <%= ruby_version_test_matrix %>
 
   steps:
     @import ../smartlyio/steps/ruby/basic
