@@ -1,0 +1,19 @@
+name: Ruby Gem
+
+on:
+  @import smartlyio/trigger/version_tag_push
+
+jobs:
+  @import ./jobs/test
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: [test]
+
+    strategy:
+      matrix:
+        ruby: [2.6.x]
+
+    steps:
+      @import smartlyio/steps/ruby/basic
+      @import smartlyio/steps/ruby/publish (ruby_publish_to_rubygems: true, ruby_publish_token_secret_name: "GEM_HOST_API_KEY")
