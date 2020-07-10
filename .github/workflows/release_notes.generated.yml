@@ -1,0 +1,22 @@
+###############################################################################
+# IMPORTANT NOTE/WARNING!                                                     #
+# This file is automagically updated from the smartlyio/smartly-gha repo      #
+# Do not make changes to this file, your changes will be overwritten          #
+# Talk to Vulcan/DevOps if you want changes or to make your own modifications #
+###############################################################################
+
+name: Release Notes
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  Publish:
+    runs-on: ubuntu-18.04
+    steps:    
+    - uses: actions/checkout@v1
+    - uses: smartlyio/github-release-notes-action@v1.0.0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
