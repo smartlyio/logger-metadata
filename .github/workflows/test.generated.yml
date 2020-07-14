@@ -1,0 +1,38 @@
+name: Build & Test
+
+on:
+  pull_request:
+    branches:
+    - master
+    types: [opened, synchronize, reopened]
+  push:
+    branches:
+    - master
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+  
+    strategy:
+      matrix:
+        ruby: ["2.4.x", "2.5.x", "2.6.x", "2.7.x"]
+  
+    steps:
+      - name: Set ruby version
+        run: echo ::set-output name=RUBY_VERSION::$([ -n '${{ matrix.ruby }}' ] && echo '${{ matrix.ruby }}' || echo '2.7.x')
+        id: ruby-version
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.ref }}
+      - name: Set up Ruby
+        uses: actions/setup-ruby@v1
+        with:
+          ruby-version: ${{ steps.ruby-version.outputs.RUBY_VERSION }}
+      - name: Install dependencies
+        run: |
+          ruby -e 'puts RUBY_VERSION' > .ruby-version
+          gem install bundler
+          bundle install --jobs 4 --retry 3
+      - name: Run tests
+        run: bundle exec rspec --format progress

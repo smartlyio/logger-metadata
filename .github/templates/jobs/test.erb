@@ -1,0 +1,11 @@
+test:
+  name: Test
+  runs-on: ubuntu-latest
+
+  strategy:
+    matrix:
+      ruby: <%= ruby_version_test_matrix %>
+
+  steps:
+    @import ../smartlyio/steps/ruby/basic
+    @import ../smartlyio/steps/ruby/test
