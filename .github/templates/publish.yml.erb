@@ -1,19 +1,10 @@
-name: Ruby Gem
+name: Release and Publish to rubygems
 
 on:
-  @import smartlyio/trigger/version_tag_push
+  push:
+    branches: [master]
 
 jobs:
   @import ./jobs/test
 
-  publish:
-    runs-on: ubuntu-latest
-    needs: [test]
-
-    strategy:
-      matrix:
-        ruby: [<%= publish_ruby_version %>]
-
-    steps:
-      @import smartlyio/steps/ruby/basic
-      @import smartlyio/steps/ruby/publish (ruby_publish_to_rubygems: true, ruby_publish_token_secret_name: "GEM_HOST_API_KEY")
+  @import smartlyio/jobs/ruby/publish (publish_needs: ["test"], ruby_publish_to_rubygems: true, ruby_publish_token_secret_name: "GEM_HOST_API_KEY")

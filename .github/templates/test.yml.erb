@@ -2,12 +2,7 @@ name: Build & Test
 
 on:
   pull_request:
-    branches:
-    - master
-    types: [opened, synchronize, reopened]
-  push:
-    branches:
-    - master
+    branches: [master]
 
 jobs:
   @import ./jobs/test
