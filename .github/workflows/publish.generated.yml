@@ -1,70 +1,146 @@
-name: Ruby Gem
+# IMPORTANT NOTE/WARNING!
+# Do not make changes to this file, your changes will be overwritten.
+#
+# This file is automagically generated from:
+# - .github/templates/publish.yml.erb
+# - Templates contained in the smartlyio/github-actions-templates repository
+#
+# This file can be updated by editing the template file, and running `devbox render workflows`
+
+name: Release and Publish to rubygems
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [master]
 
 jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-  
     strategy:
       matrix:
-        ruby: ["2.4.x", "2.5.x", "2.6.x", "2.7.x"]
-  
+        ruby: [2.4, 2.5, 2.6, 2.7]
     steps:
-      - name: Set ruby version
-        run: echo ::set-output name=RUBY_VERSION::$([ -n '${{ matrix.ruby }}' ] && echo '${{ matrix.ruby }}' || echo '2.7.x')
-        id: ruby-version
       - uses: actions/checkout@v2
+      - uses: ruby/setup-ruby@v1
         with:
-          ref: ${{ github.ref }}
-      - name: Set up Ruby
-        uses: actions/setup-ruby@v1
-        with:
-          ruby-version: ${{ steps.ruby-version.outputs.RUBY_VERSION }}
-      - name: Install dependencies
-        run: |
-          ruby -e 'puts RUBY_VERSION' > .ruby-version
-          gem install bundler
-          bundle install --jobs 4 --retry 3
-      - name: Run tests
-        run: bundle exec rspec --format progress
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+      - run: bundle exec rspec --format progress
 
   publish:
-    runs-on: ubuntu-latest
-    needs: [test]
-
-    strategy:
-      matrix:
-        ruby: [2.6.x]
-
+    runs-on: ubuntu-18.04
+    if: "!contains(github.event.head_commit.author.name, 'Github Action')"
+    needs: ["test"]
+    outputs:
+      result: ${{ steps.notify_status.outputs.status }}
     steps:
-      - name: Set ruby version
-        run: echo ::set-output name=RUBY_VERSION::$([ -n '${{ matrix.ruby }}' ] && echo '${{ matrix.ruby }}' || echo '2.7.x')
-        id: ruby-version
       - uses: actions/checkout@v2
         with:
-          ref: ${{ github.ref }}
-      - name: Set up Ruby
-        uses: actions/setup-ruby@v1
-        with:
-          ruby-version: ${{ steps.ruby-version.outputs.RUBY_VERSION }}
-      - name: Install dependencies
-        run: |
-          ruby -e 'puts RUBY_VERSION' > .ruby-version
-          gem install bundler
-          bundle install --jobs 4 --retry 3
-      - name: Configure gem token
+          fetch-depth: 0
+      - name: Get git base branch
+        id: get_base_branch
         env:
-          RUBYGEMS_AUTH_TOKEN: ${{ secrets.GEM_HOST_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mkdir -p $HOME/.gem
-          printf -- "---\n:rubygems_api_key: Bearer ${RUBYGEMS_AUTH_TOKEN}\n" > $HOME/.gem/credentials
-          chmod 0600 $HOME/.gem/credentials
-      - name: Build and publish gem
+          BASE_BRANCH="$(gh api "repos/$GITHUB_REPOSITORY" | jq -r .default_branch)"
+          echo ::set-output name=git_base_branch::"$BASE_BRANCH"
+          echo GIT_BASE_BRANCH="$BASE_BRANCH" >> "$GITHUB_ENV"
+      - name: Calculate PR filters
+        id: filters
         run: |
-          gem_push=yes rake build release:rubygem_push
-          rm $HOME/.gem/credentials
+          start_date=$(git log -1 --tags --no-walk --pretty="format:%cI")
+          last_commit_date=$(git log -1 --pretty="format:%cI")
+          end_date=$(date -Is -d "$last_commit_date 1 second")
+          echo ::set-output name=start_date::"$start_date"
+          echo ::set-output name=end_date::"$end_date"
+      - name: Get PR labels
+        uses: octokit/graphql-action@v2.x
+        id: get_latest_prs
+        with:
+          query: |
+            query($filter:String!) {
+              search(query:$filter, type: ISSUE, last: 100) {
+                edges {
+                  node {
+                    ... on PullRequest {
+                      number
+                      mergedAt
+                      labels (first: 100) {
+                        nodes {
+                          name
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          filter: repo:${{ github.repository }} is:pr base:${{ steps.get_base_branch.outputs.git_base_branch }} merged:${{ steps.filters.outputs.start_date }}..${{ steps.filters.outputs.end_date }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Get version being bumped
+        id: version_check
+        run: |
+          pr_data=$(echo "${{ steps.get_latest_prs.outputs.data }}")
+          echo "$pr_data"
+          version=$(echo "$pr_data" | grep -m1 -oi major || echo "$pr_data" | grep -m1 -oi minor || echo "$pr_data" | grep -m1 -oi patch || echo "")
+          version_lower=${version,,}
+          echo ::set-output name=version::"$version_lower"
+          if [ -z "$version" ]; then
+            echo ::set-output name=continue_release::false
+          else
+            echo ::set-output name=continue_release::true
+          fi
+      - name: Show version being bumped
+        if: steps.version_check.outputs.continue_release == 'true'
+        run: echo "Based on tags, we're updating ${{ steps.version_check.outputs.VERSION }} version!"
+      - name: Setup ruby version
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+      - name: Setup publish environment
+        uses: smartlyio/setup-git-action@v1
+        if: steps.version_check.outputs.CONTINUE_RELEASE == 'true'
+        env:
+          GIT_DEPLOY_KEY: ${{ secrets.GIT_DEPLOY_KEY }}
+      - name: Use turnstyle to wait "wait_seconds" for other instances of this job to finish
+        uses: softprops/turnstyle@a860a95b01b5b2b26c76351cdbf37df10eab8da5
+        with:
+          # The job will continue to the next step after `continue-after-seconds` (default: forever) has been reached even if the previous task is still incomplete.
+          # Specify `timeout-minutes` for your job if you need job to be aborted before reaching `continue-after-seconds`
+          poll-interval-seconds: 15
+          same-branch-only: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check if at head of branch
+        id: check_branch_behind
+        run: |
+          git remote update
+          local=${{ github.sha }}
+          remote=$(git rev-parse origin/master)
+          echo "$remote"
+          if [ "$local" == "$remote" ]; then
+            echo "Looks like we're at the head of the branch."
+            echo ::set-output name=BRANCH_UP_TO_DATE::true
+          else
+            echo "Local branch is not up to date with remote. Exiting."
+            echo ::set-output name=BRANCH_UP_TO_DATE::false
+          fi
+      - name: Bump version, build and publish gem
+        if: steps.version_check.outputs.continue_release == 'true' && steps.check_branch_behind.outputs.BRANCH_UP_TO_DATE == 'true'
+        env:
+          GEM_HOST_API_KEY: Bearer ${{ secrets.GEM_HOST_API_KEY }}
+        run: |
+          bundle exec rake bump:${{ steps.version_check.outputs.VERSION }} TAG=false
+          bundle exec rake release:source_control_push
+          bundle exec rake build release:rubygem_push
+      - name: Set job result
+        id: notify_status
+        if: steps.version_check.outputs.continue_release == 'false' || steps.check_branch_behind.outputs.BRANCH_UP_TO_DATE == 'false'
+        run: |
+          if [[ "${{steps.check_branch_behind.outputs.BRANCH_UP_TO_DATE}}" == "false" ]]; then
+            echo ::set-output name=status::"skipped"
+          elif [[ "${{steps.version_check.outputs.continue_release}}" == "false" ]]; then
+            echo ::set-output name=status::"cancelled"
+          fi

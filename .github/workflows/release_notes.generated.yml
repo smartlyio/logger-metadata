@@ -1,22 +1,27 @@
-###############################################################################
-# IMPORTANT NOTE/WARNING!                                                     #
-# This file is automagically updated from the smartlyio/smartly-gha repo      #
-# Do not make changes to this file, your changes will be overwritten          #
-# Talk to Vulcan/DevOps if you want changes or to make your own modifications #
-###############################################################################
+# IMPORTANT NOTE/WARNING!
+# Do not make changes to this file, your changes will be overwritten.
+#
+# This file is automagically generated from:
+# - .github/templates/release_notes.yml.erb
+# - Templates contained in the smartlyio/github-actions-templates repository
+#
+# This file can be updated by editing the template file, and running `devbox render workflows`
 
 name: Release Notes
 
 on:
   push:
     tags:
-      - 'v*'
+      - 'v[0-9].[0-9]+.[0-9]+'
 
 jobs:
-  Publish:
+  create-github-release:
+    name: Create github release
     runs-on: ubuntu-18.04
-    steps:    
-    - uses: actions/checkout@v1
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
     - uses: smartlyio/github-release-notes-action@v1.0.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

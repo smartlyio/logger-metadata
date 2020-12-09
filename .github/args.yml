@@ -1,2 +1,0 @@
-ruby_version_test_matrix: [2.4.x, 2.5.x, 2.6.x, 2.7.x]
-publish_ruby_version: 2.6.x

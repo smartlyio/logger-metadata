@@ -1,1 +1,7 @@
-@import smartlyio/workflow/util/release_notes
+name: Release Notes
+
+on:
+  @import smartlyio/trigger/semantic_version_tag_push
+
+jobs:
+  @import smartlyio/jobs/util/create_github_release_gren

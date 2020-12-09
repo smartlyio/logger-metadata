@@ -1,38 +1,29 @@
+# IMPORTANT NOTE/WARNING!
+# Do not make changes to this file, your changes will be overwritten.
+#
+# This file is automagically generated from:
+# - .github/templates/test.yml.erb
+# - Templates contained in the smartlyio/github-actions-templates repository
+#
+# This file can be updated by editing the template file, and running `devbox render workflows`
+
 name: Build & Test
 
 on:
   pull_request:
-    branches:
-    - master
-    types: [opened, synchronize, reopened]
-  push:
-    branches:
-    - master
+    branches: [master]
 
 jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-  
     strategy:
       matrix:
-        ruby: ["2.4.x", "2.5.x", "2.6.x", "2.7.x"]
-  
+        ruby: [2.4, 2.5, 2.6, 2.7]
     steps:
-      - name: Set ruby version
-        run: echo ::set-output name=RUBY_VERSION::$([ -n '${{ matrix.ruby }}' ] && echo '${{ matrix.ruby }}' || echo '2.7.x')
-        id: ruby-version
       - uses: actions/checkout@v2
+      - uses: ruby/setup-ruby@v1
         with:
-          ref: ${{ github.ref }}
-      - name: Set up Ruby
-        uses: actions/setup-ruby@v1
-        with:
-          ruby-version: ${{ steps.ruby-version.outputs.RUBY_VERSION }}
-      - name: Install dependencies
-        run: |
-          ruby -e 'puts RUBY_VERSION' > .ruby-version
-          gem install bundler
-          bundle install --jobs 4 --retry 3
-      - name: Run tests
-        run: bundle exec rspec --format progress
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+      - run: bundle exec rspec --format progress
