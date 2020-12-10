@@ -49,8 +49,9 @@ jobs:
       - name: Calculate PR filters
         id: filters
         run: |
-          start_date=$(git log -1 --tags --no-walk --pretty="format:%cI")
+          last_tag_date=$(git log -1 --tags --no-walk --pretty="format:%cI")
           last_commit_date=$(git log -1 --pretty="format:%cI")
+          start_date=$(date -Is -d "$last_tag_date")
           end_date=$(date -Is -d "$last_commit_date 1 second")
           echo ::set-output name=start_date::"$start_date"
           echo ::set-output name=end_date::"$end_date"
@@ -97,6 +98,7 @@ jobs:
         run: echo "Based on tags, we're updating ${{ steps.version_check.outputs.VERSION }} version!"
       - name: Setup ruby version
         uses: ruby/setup-ruby@v1
+        if: steps.version_check.outputs.CONTINUE_RELEASE == 'true'
         with:
           bundler-cache: true
       - name: Setup publish environment
@@ -139,8 +141,8 @@ jobs:
         id: notify_status
         if: steps.version_check.outputs.continue_release == 'false' || steps.check_branch_behind.outputs.BRANCH_UP_TO_DATE == 'false'
         run: |
-          if [[ "${{steps.check_branch_behind.outputs.BRANCH_UP_TO_DATE}}" == "false" ]]; then
-            echo ::set-output name=status::"skipped"
-          elif [[ "${{steps.version_check.outputs.continue_release}}" == "false" ]]; then
+          if [[ "${{steps.version_check.outputs.continue_release}}" == "false" ]]; then
             echo ::set-output name=status::"cancelled"
+          elif [[ "${{steps.check_branch_behind.outputs.BRANCH_UP_TO_DATE}}" == "false" ]]; then
+            echo ::set-output name=status::"skipped"
           fi
