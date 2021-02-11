@@ -12,16 +12,35 @@ name: Release Notes
 on:
   push:
     tags:
-      - 'v[0-9].[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
   create-github-release:
     name: Create github release
     runs-on: ubuntu-18.04
     steps:
-    - uses: actions/checkout@v2
-      with:
-        fetch-depth: 0
-    - uses: smartlyio/github-release-notes-action@v1.0.0
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v1
+      - name: Get release message
+        id: release_message
+        run: |
+          # get merge commits between two latest tags and remove part of the message
+          recent_tags="$(git tag --sort=creatordate --list 'v*' | grep -P 'v\d+\.\d+\.\d+' | tail -n2)"
+          previous_tag="$(echo "$recent_tags" | head -n1)"
+          this_tag="$(echo "$recent_tags" | tail -n1)"
+          raw_changes=$(git log "${previous_tag}..${this_tag}" --merges --first-parent --oneline --pretty=format:"[[%s]] %b [%an]")
+          git_changes=$(echo "$raw_changes" | sed -E "s/\[\[.*(#[[:digit:]]+).*\]\]/- \1/g")
+          
+          # set-output truncates white characters so we should replace it
+          git_changes="${git_changes//$'\n'/'%0A'}"
+          echo ::set-output name=release_changes::"$git_changes"
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+          body: |
+            ${{ steps.release_message.outputs.release_changes }}
+          draft: false
+          prerelease: false
