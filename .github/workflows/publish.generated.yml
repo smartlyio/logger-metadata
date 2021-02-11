@@ -50,11 +50,8 @@ jobs:
         id: filters
         run: |
           last_tag_date=$(git log -1 --tags --no-walk --pretty="format:%cI")
-          last_commit_date=$(git log -1 --pretty="format:%cI")
           start_date=$(date -Is -d "$last_tag_date")
-          end_date=$(date -Is -d "$last_commit_date 1 second")
           echo ::set-output name=start_date::"$start_date"
-          echo ::set-output name=end_date::"$end_date"
       - name: Get PR labels
         uses: octokit/graphql-action@v2.x
         id: get_latest_prs
@@ -77,7 +74,7 @@ jobs:
                 }
               }
             }
-          filter: repo:${{ github.repository }} is:pr base:${{ steps.get_base_branch.outputs.git_base_branch }} merged:${{ steps.filters.outputs.start_date }}..${{ steps.filters.outputs.end_date }}
+          filter: repo:${{ github.repository }} is:pr base:${{ steps.get_base_branch.outputs.git_base_branch }} merged:>${{ steps.filters.outputs.start_date }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Get version being bumped
@@ -118,7 +115,7 @@ jobs:
       - name: Check if at head of branch
         id: check_branch_behind
         run: |
-          git remote update
+          git fetch --depth=1 origin master
           local=${{ github.sha }}
           remote=$(git rev-parse origin/master)
           echo "$remote"
