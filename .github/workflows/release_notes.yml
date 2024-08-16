@@ -10,7 +10,7 @@ jobs:
     name: Create github release
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
       - name: Get release message
         id: release_message
         run: |
