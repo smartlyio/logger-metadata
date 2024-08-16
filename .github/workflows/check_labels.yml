@@ -12,7 +12,7 @@ on:
 
 jobs:
   check_labels:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     steps:
     - name: debug
       if: contains(github.event.pull_request.labels.*.name, 'debug')
