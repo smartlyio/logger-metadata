@@ -20,117 +20,22 @@ jobs:
       - run: bundle exec rspec --format progress
 
   publish:
+    name: Publish
     runs-on: ubuntu-22.04
-    if: "!contains(github.event.head_commit.author.name, 'Github Action')"
+    if: github.event.head_commit.author.name != 'Github Action'
     needs: ["test"]
+    concurrency: publish-${{ github.head_ref || github.ref }}
     outputs:
-      result: ${{ steps.notify_status.outputs.status }}
+      result: ${{ steps.publish.outputs.status }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Get git base branch
-        id: get_base_branch
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          BASE_BRANCH="$(gh api "repos/$GITHUB_REPOSITORY" | jq -r .default_branch)"
-          echo ::set-output name=git_base_branch::"$BASE_BRANCH"
-          echo GIT_BASE_BRANCH="$BASE_BRANCH" >> "$GITHUB_ENV"
-      - name: Calculate PR filters
-        id: filters
-        run: |
-          last_tag_date=$(git log -1 --tags --no-walk --pretty="format:%cI")
-          start_date=$(date -Is -d "$last_tag_date")
-          echo ::set-output name=start_date::"$start_date"
-      - name: Get PR labels
-        uses: octokit/graphql-action@v2.x
-        id: get_latest_prs
+      - id: publish
+        uses: smartlyio/github-actions-private@publish-ruby-v1
         with:
-          query: |
-            query($filter:String!) {
-              search(query:$filter, type: ISSUE, last: 100) {
-                edges {
-                  node {
-                    ... on PullRequest {
-                      number
-                      mergedAt
-                      labels (first: 100) {
-                        nodes {
-                          name
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          filter: repo:${{ github.repository }} is:pr base:${{ steps.get_base_branch.outputs.git_base_branch }} merged:>${{ steps.filters.outputs.start_date }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Get version being bumped
-        id: version_check
-        run: |
-          pr_data=$(echo "${{ steps.get_latest_prs.outputs.data }}")
-          echo "$pr_data"
-          version=$(echo "$pr_data" | grep -m1 -oi major || echo "$pr_data" | grep -m1 -oi minor || echo "$pr_data" | grep -m1 -oi patch || echo "")
-          version_lower=${version,,}
-          echo ::set-output name=version::"$version_lower"
-          if [ -z "$version" ]; then
-            echo ::set-output name=continue_release::false
-          else
-            echo ::set-output name=continue_release::true
-          fi
-      - name: Show version being bumped
-        if: steps.version_check.outputs.continue_release == 'true'
-        run: echo "Based on tags, we're updating ${{ steps.version_check.outputs.VERSION }} version!"
-      - name: Setup ruby version
-        uses: ruby/setup-ruby@v1
-        if: steps.version_check.outputs.CONTINUE_RELEASE == 'true'
-        with:
-          bundler-cache: true
-      - name: Setup publish environment
-        uses: smartlyio/setup-git-action@v1
-        if: steps.version_check.outputs.CONTINUE_RELEASE == 'true'
-        env:
-          GIT_DEPLOY_KEY: ${{ secrets.GIT_DEPLOY_KEY }}
-      - name: Use turnstyle to wait "wait_seconds" for other instances of this job to finish
-        uses: softprops/turnstyle@a860a95b01b5b2b26c76351cdbf37df10eab8da5
-        with:
-          # The job will continue to the next step after `continue-after-seconds` (default: forever) has been reached even if the previous task is still incomplete.
-          # Specify `timeout-minutes` for your job if you need job to be aborted before reaching `continue-after-seconds`
-          poll-interval-seconds: 15
-          same-branch-only: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Check if at head of branch
-        id: check_branch_behind
-        run: |
-          git fetch --depth=1 origin master
-          local=${{ github.sha }}
-          remote=$(git rev-parse origin/master)
-          echo "$remote"
-          if [ "$local" == "$remote" ]; then
-            echo "Looks like we're at the head of the branch."
-            echo ::set-output name=BRANCH_UP_TO_DATE::true
-          else
-            echo "Local branch is not up to date with remote. Exiting."
-            echo ::set-output name=BRANCH_UP_TO_DATE::false
-          fi
-      - name: Bump version, build and publish gem
-        if: steps.version_check.outputs.continue_release == 'true' && steps.check_branch_behind.outputs.BRANCH_UP_TO_DATE == 'true'
-        env:
-          GEM_HOST_API_KEY: Bearer ${{ secrets.GEM_HOST_API_KEY }}
-        run: |
-          bundle exec rake bump:${{ steps.version_check.outputs.VERSION }} TAG=false
-          bundle exec rake release:source_control_push
-          bundle exec rake build release:rubygem_push
-      - name: Set job result
-        id: notify_status
-        if: steps.version_check.outputs.continue_release == 'false' || steps.check_branch_behind.outputs.BRANCH_UP_TO_DATE == 'false'
-        run: |
-          if [[ "${{steps.version_check.outputs.continue_release}}" == "false" ]]; then
-            echo ::set-output name=status::"cancelled"
-          elif [[ "${{steps.check_branch_behind.outputs.BRANCH_UP_TO_DATE}}" == "false" ]]; then
-            echo ::set-output name=status::"skipped"
-          fi
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          artifactory-gem-read-username: ${{ secrets.ARTIFACTORY_GEM_READ_USERNAME }}
+          artifactory-gem-read-token: ${{ secrets.ARTIFACTORY_GEM_READ_TOKEN }}
+          git-deploy-key: ${{ secrets.GIT_DEPLOY_KEY }}
+          artifactory-gem-push-token: ${{ secrets.ARTIFACTORY_GEM_PUSH }}
