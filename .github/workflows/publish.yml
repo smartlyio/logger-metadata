@@ -5,25 +5,16 @@ on:
     branches: [master]
 
 jobs:
-  test:
-    name: Test
-    runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        ruby: [2.4, 2.5, 2.6, 2.7]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: ${{ matrix.ruby }}
-          bundler-cache: true
-      - run: bundle exec rspec --format progress
+  build:
+    name: Build
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
 
   publish:
     name: Publish
     runs-on: ubuntu-22.04
     if: github.event.head_commit.author.name != 'Github Action'
-    needs: ["test"]
+    needs: ["build"]
     concurrency: publish-${{ github.head_ref || github.ref }}
     outputs:
       result: ${{ steps.publish.outputs.status }}
