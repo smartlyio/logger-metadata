@@ -23,7 +23,8 @@ jobs:
         with:
           fetch-depth: 0
       - id: publish
-        uses: smartlyio/github-actions-private@publish-ruby-v1
+        name: publish ruby
+        uses: ./.github/publish-ruby
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           artifactory-gem-read-username: ${{ secrets.ARTIFACTORY_GEM_READ_USERNAME }}
