@@ -1,14 +1,3 @@
-# IMPORTANT NOTE/WARNING!
-# Do not make changes to this file, your changes will be overwritten.
-#
-# This file is automagically generated from:
-# - .github/templates/check_labels.yml.erb
-# - Templates contained in the smartlyio/github-actions-templates repository
-#
-# This file can be updated by editing the template file, and running `devbox render workflows`
-
-
-
 name: Check Labels
 
 on:
@@ -23,7 +12,7 @@ on:
 
 jobs:
   check_labels:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     steps:
     - name: debug
       if: contains(github.event.pull_request.labels.*.name, 'debug')
@@ -35,4 +24,3 @@ jobs:
     - uses: smartlyio/check-versioning-action@v5
       with:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
