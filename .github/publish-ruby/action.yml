@@ -1,0 +1,81 @@
+name: Publish Ruby
+description: "Publishes a new version of a Ruby gem"
+inputs:
+  github-token:
+    description: "GitHub token"
+    required: true
+  artifactory-gem-read-username:
+    description: "Username for Artifactory gem read access"
+    required: true
+  artifactory-gem-read-token:
+    description: "Token for Artifactory gem read access"
+    required: true
+  git-deploy-key:
+    description: "Deploy key for git"
+    required: true
+  artifactory-gem-push-token:
+    description: "Token for Artifactory gem push access"
+    required: true
+outputs:
+  status:
+    description: "Status of the action"
+    value: ${{ steps.notify_status.outputs.status }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Get base branch
+      id: get_base_branch
+      uses: smartlyio/github-actions@get-base-branch-v1
+      with:
+        token: ${{ inputs.github-token }}
+    - name: Get next semantic version
+      id: version_check
+      uses: smartlyio/github-actions@get-next-semantic-version-v1
+      with:
+        token: ${{ inputs.github-token }}
+        git_default_branch: ${{ steps.get_base_branch.outputs.git_base_branch }}
+    - name: Setup ruby version
+      uses: ruby/setup-ruby@v1
+      if: steps.version_check.outputs.continue_release == 'true'
+      env:
+        BUNDLE_SMARTLY__AF: ${{ inputs.artifactory-gem-read-username }}:${{ inputs.artifactory-gem-read-token }}
+        BUNDLE_ARTIFACTOR__EE: ${{ inputs.artifactory-gem-read-username }}:${{ inputs.artifactory-gem-read-token }}
+      with:
+        bundler-cache: true
+    - name: Setup publish environment
+      uses: smartlyio/setup-git-action@v2
+      if: steps.version_check.outputs.continue_release == 'true'
+      env:
+        GIT_DEPLOY_KEY: ${{ inputs.git-deploy-key }}
+    - name: Set branch head
+      id: branch_head
+      shell: bash
+      run: echo "default=refs/heads/${{ steps.get_base_branch.outputs.git_base_branch }}" >> "$GITHUB_OUTPUT"
+    - name: Check branch behind
+      id: check_branch_behind
+      uses: smartlyio/github-actions@check-branch-behind-v1
+      with:
+        is_base_ref: ${{ github.event_name == 'push' && github.ref == steps.branch_head.outputs.default }}
+        git_default_branch: ${{ steps.get_base_branch.outputs.git_base_branch }}
+    - name: Bump version, build and publish gem
+      if: steps.version_check.outputs.continue_release == 'true' && steps.check_branch_behind.outputs.branch_up_to_date == 'true'
+      env:
+        RUBYGEMS_HOST: https://artifactor.ee/artifactory/api/gems/gems-local
+        GEM_HOST_API_KEY: Bearer ${{ inputs.artifactory-gem-push-token }}
+      shell: bash
+      run: |
+        bundle exec rake bump:${{ steps.version_check.outputs.version }} TAG=false
+        bundle exec rake release:source_control_push
+        bundle exec rake build release:rubygem_push
+    - name: Set job result
+      id: notify_status
+      if: steps.version_check.outputs.continue_release == 'false' || steps.check_branch_behind.outputs.branch_up_to_date == 'false'
+      shell: bash
+      run: |
+        if [[ "${{steps.version_check.outputs.continue_release}}" == "false" ]]; then
+          echo status=cancelled >> "$GITHUB_OUTPUT"
+        elif [[ "${{steps.check_branch_behind.outputs.branch_up_to_date}}" == "false" ]]; then
+          echo status=skipped >> "$GITHUB_OUTPUT"
+        fi
+
