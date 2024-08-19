@@ -23,6 +23,7 @@ jobs:
         with:
           fetch-depth: 0
       - id: publish
+        name: publish ruby
         uses: ./.github/publish-ruby
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
