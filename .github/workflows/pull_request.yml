@@ -9,3 +9,24 @@ jobs:
     name: Build
     uses: ./.github/workflows/build.yml
     secrets: inherit
+
+  publish:
+    name: Publish
+    runs-on: ubuntu-22.04
+    if: github.event.head_commit.author.name != 'Github Action'
+    needs: ["build"]
+    concurrency: publish-${{ github.head_ref || github.ref }}
+    outputs:
+      result: ${{ steps.publish.outputs.status }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: publish
+        uses: ./.github/publish-ruby
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          artifactory-gem-read-username: ${{ secrets.ARTIFACTORY_GEM_READ_USERNAME }}
+          artifactory-gem-read-token: ${{ secrets.ARTIFACTORY_GEM_READ_TOKEN }}
+          git-deploy-key: ${{ secrets.GIT_DEPLOY_KEY }}
+          artifactory-gem-push-token: ${{ secrets.ARTIFACTORY_GEM_PUSH }}
