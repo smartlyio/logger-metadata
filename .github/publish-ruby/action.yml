@@ -26,12 +26,12 @@ runs:
   steps:
     - name: Get base branch
       id: get_base_branch
-      uses: smartlyio/github-actions@get-base-branch-v1
+      uses: smartlyio/github-actions-private@get-base-branch-v1
       with:
         token: ${{ inputs.github-token }}
     - name: Get next semantic version
       id: version_check
-      uses: smartlyio/github-actions@get-next-semantic-version-v1
+      uses: smartlyio/github-actions-private@get-next-semantic-version-v1
       with:
         token: ${{ inputs.github-token }}
         git_default_branch: ${{ steps.get_base_branch.outputs.git_base_branch }}
@@ -54,7 +54,7 @@ runs:
       run: echo "default=refs/heads/${{ steps.get_base_branch.outputs.git_base_branch }}" >> "$GITHUB_OUTPUT"
     - name: Check branch behind
       id: check_branch_behind
-      uses: smartlyio/github-actions@check-branch-behind-v1
+      uses: smartlyio/github-actions-private@check-branch-behind-v1
       with:
         is_base_ref: ${{ github.event_name == 'push' && github.ref == steps.branch_head.outputs.default }}
         git_default_branch: ${{ steps.get_base_branch.outputs.git_base_branch }}
